@@ -1,4 +1,4 @@
-.PHONY: build examples clean
+.PHONY: build examples test clean
 
 build:
 	go build
@@ -6,6 +6,9 @@ build:
 examples:
 	mkdir -p ./bin/
 	go build -o ./bin/example ./examples/main.go
+
+test:
+	go test ./...
 
 clean:
 	rm -rf ./bin/

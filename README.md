@@ -41,6 +41,59 @@ open example.ppm
 |2.0|![dielectric sphere of refractive index 2.0](images/dielectric_i200.png)|
 
 
+## Textures
+
+Sphere hits carry stable latitude/longitude UVs, so Lambertian and metal
+materials can sample a texture instead of a constant albedo. The texture
+color participates in the same scattering as a solid color.
+
+### Image textures
+
+`NewImageTexture` (and the file-based `NewImageTextureFile`) decode PNG or
+JPEG data. Two reconstruction filters are available:
+
+```go
+tex, err := raytracing.NewImageTextureFile("earth.jpg", raytracing.BilinearFilter)
+if err != nil {
+    log.Fatal(err)
+}
+mat, err := raytracing.NewLambertianWithTexture(tex)
+```
+
+* `NearestFilter` selects the closest texel; `BilinearFilter` blends the
+  four surrounding texels.
+* Addressing is **repeat horizontally** (the longitude seam is seamless)
+  and **clamp vertically** (the poles pin to the edge row, so no
+  out-of-range stripes appear).
+* Equirectangular maps are stored north-up: the image's top row maps to the
+  north pole and its bottom row to the south pole.
+* The alpha channel is ignored — transparent pixels keep their straight RGB
+  color instead of opening holes in the surface.
+* Undecodable/empty images return `ErrBadImage`, images exceeding
+  `MaxTextureDimension` (16384) return `ErrTextureTooLarge`, and a nil
+  texture passed to a material returns `ErrNilTexture`. Sampling failures
+  (e.g. non-finite UVs) fall back to magenta rather than panicking.
+
+### Procedural checkerboard
+
+`NewCheckerTexture` needs no image asset and is handy for verifying the UV
+mapping:
+
+```go
+checker := raytracing.NewCheckerTexture(
+    raytracing.NewSolidTexture(raytracing.NewColor(0.9, 0.9, 0.9)),
+    raytracing.NewSolidTexture(raytracing.NewColor(0.1, 0.1, 0.1)),
+    16, 8, // cells along longitude and latitude
+)
+mat, _ := raytracing.NewLambertianWithTexture(checker)
+```
+
+The example scene picks up an optional map through `TEXTURE_PATH`:
+
+```shell
+TEXTURE_PATH=earth.jpg ./bin/example > example.ppm
+```
+
 ## Camera Setting
 
 ### Angle of View

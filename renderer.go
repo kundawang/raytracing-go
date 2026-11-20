@@ -120,7 +120,7 @@ func rayColor(r ray, scene Scene, depth int) Color {
 	if !ok {
 		return NewColor(0, 0, 0)
 	}
-	att := hr.material.attenuation()
+	att := hr.material.attenuation(hr)
 	c := rayColor(scattered, scene, depth-1)
 	return NewColor(att.x*c.x, att.y*c.y, att.z*c.z)
 }

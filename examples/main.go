@@ -1,7 +1,9 @@
 package main
 
 import (
+	"log"
 	"math"
+	"os"
 
 	"github.com/y-taka-23/raytracing-go"
 )
@@ -30,9 +32,22 @@ func getScene() raytracing.Scene {
 	scene.Add(raytracing.NewSphere(
 		raytracing.NewPoint(-4, 1, 0), 1,
 		raytracing.NewLambertian(raytracing.NewColor(0.4, 0.2, 0.1))))
-	scene.Add(raytracing.NewSphere(
-		raytracing.NewPoint(4, 1, 0), 1,
-		raytracing.NewMetal(raytracing.NewColor(0.7, 0.6, 0.5), 0)))
+
+	// The metal sphere is textured when an equirectangular PNG/JPEG is
+	// supplied via the TEXTURE_PATH environment variable; otherwise it keeps
+	// its original solid color.
+	metal := raytracing.Material(raytracing.NewMetal(raytracing.NewColor(0.7, 0.6, 0.5), 0))
+	if path := os.Getenv("TEXTURE_PATH"); path != "" {
+		tex, err := raytracing.NewImageTextureFile(path, raytracing.BilinearFilter)
+		if err != nil {
+			log.Fatalf("cannot load texture %q: %v", path, err)
+		}
+		metal, err = raytracing.NewMetalWithTexture(tex, 0)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	scene.Add(raytracing.NewSphere(raytracing.NewPoint(4, 1, 0), 1, metal))
 
 	return *scene
 }

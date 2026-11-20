@@ -7,15 +7,27 @@ import (
 
 type Material interface {
 	scatter(hr hitRecord) (ray, bool)
-	attenuation() Color
+	attenuation(hr hitRecord) Color
 }
 
 type lambertian struct {
-	albedo Color
+	texture Texture
 }
 
+// NewLambertian keeps the original constant-albedo constructor. Internally
+// the color is wrapped in a solid texture, so untextured materials follow
+// exactly the same sampling path as textured ones.
 func NewLambertian(c Color) Material {
-	return lambertian{albedo: c}
+	return lambertian{texture: NewSolidTexture(c)}
+}
+
+// NewLambertianWithTexture builds a Lambertian surface whose albedo varies
+// with the hit UV. A nil texture is rejected.
+func NewLambertianWithTexture(t Texture) (Material, error) {
+	if t == nil {
+		return nil, ErrNilTexture
+	}
+	return lambertian{texture: t}, nil
 }
 
 func (l lambertian) scatter(hr hitRecord) (ray, bool) {
@@ -26,15 +38,16 @@ func (l lambertian) scatter(hr hitRecord) (ray, bool) {
 	return newRay(hr.point, hr.normal.add(random)), true
 }
 
-func (l lambertian) attenuation() Color {
-	return l.albedo
+func (l lambertian) attenuation(hr hitRecord) Color {
+	return l.texture.value(hr.u, hr.v)
 }
 
 type metal struct {
-	albedo    Color
+	texture   Texture
 	fuzziness float64
 }
 
+// NewMetal keeps the original constructor for a constant albedo.
 func NewMetal(c Color, f float64) Material {
 	if f <= 0 {
 		f = 0
@@ -42,7 +55,22 @@ func NewMetal(c Color, f float64) Material {
 	if f >= 1 {
 		f = 1
 	}
-	return metal{albedo: c, fuzziness: f}
+	return metal{texture: NewSolidTexture(c), fuzziness: f}
+}
+
+// NewMetalWithTexture builds a metallic surface whose albedo varies with the
+// hit UV. A nil texture is rejected.
+func NewMetalWithTexture(t Texture, f float64) (Material, error) {
+	if t == nil {
+		return nil, ErrNilTexture
+	}
+	if f <= 0 {
+		f = 0
+	}
+	if f >= 1 {
+		f = 1
+	}
+	return metal{texture: t, fuzziness: f}, nil
 }
 
 func (m metal) scatter(hr hitRecord) (ray, bool) {
@@ -67,8 +95,8 @@ func randomInUnitSphere() Vector {
 	return NewVector(x, y, z)
 }
 
-func (m metal) attenuation() Color {
-	return m.albedo
+func (m metal) attenuation(hr hitRecord) Color {
+	return m.texture.value(hr.u, hr.v)
 }
 
 type dielectric struct {
@@ -112,7 +140,7 @@ func (d dielectric) scatter(hr hitRecord) (ray, bool) {
 	return newRay(hr.point, refracted), true
 }
 
-func (d dielectric) attenuation() Color {
+func (d dielectric) attenuation(_ hitRecord) Color {
 	return NewColor(1, 1, 1)
 }
 
